@@ -21,10 +21,7 @@
     "kinetic energy": "$$KE = \\frac{1}{2}mv^2$$",
     "potential energy": "$$PE = mgh$$",
     "momentum": "$$p = mv$$",
-    "density": "$$\\rho = \\frac{m}{V}$$",
-    "pressure": "$$P = \\frac{F}{A}$$",
     "speed": "$$v = \\frac{d}{t}$$",
-    "acceleration": "$$a = \\frac{\\Delta v}{t}$$",
     "average speed": "$$v_{avg} = \\frac{\\text{total distance}}{\\text{total time}}$$",
     "equation of motion 1": "$$v = u + at$$",
     "equation of motion 2": "$$s = ut + \\frac{1}{2}at^2$$",
@@ -53,6 +50,29 @@
     "snell's law": "$$n_1 \\sin\\theta_1 = n_2 \\sin\\theta_2$$",
     "\"area of a circle\"": "\nThe area of a circle is given by the formula:\n$$A = \\pi r^2$$\nwhere $r$ represents the radius of the circle and $\\pi$ (pi) is approximately equal to 3.14159. This formula states that the area of a circle can be calculated by multiplying the square of its radius by pi, which gives us the total amount of space inside the circle.",
     "surface area of a cone": "\n\\begin{equation}\nA = \\frac{\\pi r^2}{3} + \\pi rh\n\\end{equation}\nwhere $r$ is the radius of the base and $h$ is the height of the cone. The formula for surface area of a cone is obtained by adding the areas of its two circular bases and the lateral surface area, which can be calculated using the slant height ($s$). \nThe lateral surface area of a cone is given by:\n$$A_{lateral} = \\frac{1}{2}\\pi s^2$$\nwhere $s$ is the slant height. The slant height of a cone can be found using Pythagorean theorem, which states that in a right triangle, the square of the length of the hypotenuse (the side opposite to the right angle) is equal to the sum of the squares of the lengths of the other two sides. \n",
-    "area of square": "\n\\begin{equation}\nA = s^2\n\\end{equation}\nwhere $s$ is the length of one side of the square. The formula represents that the area of a square can be calculated by squaring the length of one side."
+    "area of square": "\n\\begin{equation}\nA = s^2\n\\end{equation}\nwhere $s$ is the length of one side of the square. The formula represents that the area of a square can be calculated by squaring the length of one side.",
+    "formula of molarity": "\n\\begin{equation*}\nM = \\frac{\\text{mass of solute}}{\\text{volume of solution}}\n\\end{equation*}\nwhere $M$ is the molarity, $\\text{mass of solute}$ is the mass of the solute in grams, and $\\text{volume of solution}$ is the volume of the solution in liters. The formula for molarity represents the concentration of a substance in terms of its mass per unit volume. It is commonly used to describe the strength of solutions, particularly those involving water.",
+    "formula for distance": "\nNote: Please provide a brief description of each variable and its units.",
+    "formula for time": "\n## Formula for Time\n$$t = \\frac{d}{v}$$\n\n### Definition\nThe formula calculates the time it takes to cover a distance $d$ at a constant velocity $v$. It is commonly used in physics and engineering.\n\n### Components\n- $t$: time (measured in seconds)\n- $d$: distance (measured in meters or kilometers)\n- $v$: velocity (measured in meters per second or kilometers per hour)\n\n### Example\nFor example, if a car travels 100 km at an average speed of 60 km/h, the time it takes to cover that distance is:\n$$t = \\frac{d}{v} = \\frac{100}{60} = 1.67 hours.$$\n\n### Notes\n- This formula assumes constant velocity and no changes in speed or direction during the journey. It",
+    "torque formula": "\n---",
+    "kinematic equations": "\n---\n\n## Kinematic Equations\n\n### Formula\n$$a = \\frac{v^2}{r}$$\nLaTeX: $$a = \\frac{v^2}{r}$$\n\n### Definition\nThe kinematic equation represents the relationship between acceleration, velocity, and distance. It is used to calculate the acceleration of an object moving in a straight line.\n\n### Components\n- $a$: Acceleration (m/s\u00b2)\n- $v$: Velocity (m/s)\n- $r$: Distance (m)\n\n### Example\nGiven: An object moves from rest to a velocity of 10 m/s in 5 seconds.\nStep 1: Substitute the given values into the formula: $$a = \\frac{v^2}{r}$$\n$$a = \\frac{(10)^2}{5}$$\nStep ",
+    "coulomb's law": "\n---\n\n## Coulomb's Law\n\n### Formula\n$$F = k\\frac{q_1q_2}{r^2}$$\nLaTeX: $$F = k\\frac{q_1q_2}{r^2}$$\n\n### Definition\nCoulomb's Law calculates the electrostatic force between two charges.\n\n### Components\n- $F$: Force (N)\n- $k$: Coulomb’s constant ($8.99 \\times 10^9\\,\\mathrm{Nm^2/C^2}$)\n- $q_1, q_2$: Charges (C)\n- $r$: Distance (m)\n\n### Example\nGiven: $q_1 = 1\\,C$, $q_2 = 2\\,C$, $r = 1\\,m$\n$$F = \\frac{8.99 \\times 10^9 \\times 1 \\times 2}{1^2} = 1.798 \\times 10^{10}\\,N$$\n",
+    "wave speed": "\n---\n\n## Wave Speed\n\n### Formula\n$$v = f\\lambda$$\nLaTeX: $$v = f\\lambda$$\n\n### Definition\nThe speed of a wave is the product of its frequency and wavelength.\n\n### Components\n- $v$: Speed (m/s)\n- $f$: Frequency (Hz)\n- $\\lambda$: Wavelength (m)\n\n### Example\nGiven: $f = 50\\,Hz$, $\\lambda = 2\\,m$\n$$v = 50 \\times 2 = 100\\,m/s$$\n",
+    "power in electric circuit": "\n---\n\n## Electric Power\n\n### Formula\n$$P = VI$$\nLaTeX: $$P = VI$$\n\n### Definition\nPower in an electric circuit is the product of voltage and current.\n\n### Components\n- $P$: Power (W)\n- $V$: Voltage (V)\n- $I$: Current (A)\n\n### Example\nGiven: $V = 12\\,V$, $I = 2\\,A$\n$$P = 12 \\times 2 = 24\\,W$$\n",
+    "work done": "\n---\n\n## Work Done\n\n### Formula\n$$W = Fd\\cos\\theta$$\nLaTeX: $$W = Fd\\cos\\theta$$\n\n### Definition\nWork is done when a force is applied to an object, causing displacement.\n\n### Components\n- $W$: Work (Joules)\n- $F$: Force (N)\n- $d$: Displacement (m)\n- $\\theta$: Angle between force and displacement\n\n### Example\nGiven: $F = 10\\,N$, $d = 5\\,m$, $\\theta = 0^\\circ$\n$$W = 10 \\times 5 \\times \\cos 0 = 50\\,J$$\n",
+    "density": "\n---\n\n## Density\n\n### Formula\n$$\\rho = \\frac{m}{V}$$\nLaTeX: $$\\rho = \\frac{m}{V}$$\n\n### Definition\nDensity is the mass of an object divided by its volume.\n\n### Components\n- $\\rho$: Density (kg/m³)\n- $m$: Mass (kg)\n- $V$: Volume (m³)\n\n### Example\nGiven: $m = 10\\,kg$, $V = 2\\,m^3$\n$$\\rho = \\frac{10}{2} = 5\\,kg/m^3$$\n",
+    "pressure": "\n---\n\n## Pressure\n\n### Formula\n$$P = \\frac{F}{A}$$\nLaTeX: $$P = \\frac{F}{A}$$\n\n### Definition\nPressure is the force applied per unit area.\n\n### Components\n- $P$: Pressure (Pa)\n- $F$: Force (N)\n- $A$: Area (m²)\n\n### Example\nGiven: $F = 100\\,N$, $A = 2\\,m^2$\n$$P = \\frac{100}{2} = 50\\,Pa$$\n",
+    "hooke's law": "\n---\n\n## Hooke's Law\n\n### Formula\n$$F = -kx$$\nLaTeX: $$F = -kx$$\n\n### Definition\nHooke’s Law relates the force needed to extend or compress a spring to the displacement.\n\n### Components\n- $F$: Restoring Force (N)\n- $k$: Spring constant (N/m)\n- $x$: Displacement (m)\n\n### Example\nGiven: $k = 200\\,N/m$, $x = 0.1\\,m$\n$$F = -200 \\times 0.1 = -20\\,N$$\n",
+    "acceleration": "\n---\n\n## Acceleration\n\n### Formula\n$$a = \\frac{\\Delta v}{\\Delta t}$$\nLaTeX: $$a = \\frac{\\Delta v}{\\Delta t}$$\n\n### Definition\nAcceleration is the rate of change of velocity over time.\n\n### Components\n- $a$: Acceleration (m/s²)\n- $\\Delta v$: Change in velocity (m/s)\n- $\\Delta t$: Time interval (s)\n\n### Example\nGiven: $\\Delta v = 20\\,m/s$, $\\Delta t = 4\\,s$\n$$a = \\frac{20}{4} = 5\\,m/s^2$$\n"
+
+
+
+
+    
+
+
+
+
+
   }
 }

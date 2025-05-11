@@ -46,28 +46,64 @@ class StudyBot:
         data = self.validate_and_fix_json()
         self.formulas_db = data.get("formulas", {})
 
+    def normalize_query(self, query):
+        """Normalize the query to handle similar variations."""
+        # Remove common filler words
+        filler_words = ['the', 'a', 'an', 'of', 'for', 'to', 'in', 'formula', 'equation']
+        words = query.lower().split()
+        normalized = ' '.join(word for word in words if word not in filler_words)
+        return normalized.strip()
+
     def get_formula(self, query):
-        query_lower = query.lower()
+        # Normalize the query
+        query_normalized = self.normalize_query(query)
+        logging.info(f"Original query: '{query}' normalized to: '{query_normalized}'")
         
-        # Check if the formula exists in memory
-        if query_lower in self.formulas_db:
-            logging.info(f"Formula for '{query_lower}' found in database.")
-            return f"📘 From Database:\n{self.formulas_db[query_lower]}"
+        # Check if the normalized formula exists in memory
+        if query_normalized in self.formulas_db:
+            logging.info(f"Formula for '{query_normalized}' found in database.")
+            return f"📘 From Database:\n{self.formulas_db[query_normalized]}"
         
-        # Generate a new formula if not found
-        logging.info(f"Formula for '{query_lower}' not found. Generating...")
-        response = self.model.generate(f"Provide the exact formula for {query} with brief explanation. Use LaTeX math formatting with $$ when appropriate.")
+        # Generate a new formula with structured prompt
+        logging.info(f"Formula for '{query_normalized}' not found. Generating...")
+        structured_prompt = f"""
+Provide a structured response for {query} using this exact format:
+
+### Formula
+Plain text: [Write the formula using simple characters like ^, *, /, sqrt()]
+LaTeX: [Write the formula using LaTeX notation between $$ symbols]
+
+### Definition
+[Brief definition in 1-2 sentences]
+
+### Components
+- [variable]: [meaning] [unit if applicable]
+[List each variable on a new line]
+
+### Example
+Given: [input values]
+Step 1: [show substitution with plain text formula]
+Step 2: [show calculation]
+Result: [final answer with unit]
+
+### Notes
+- [key point 1]
+- [key point 2]
+[List 2-3 important notes]
+"""
+    
+        response = self.model.generate(structured_prompt)
         
-        # Update the in-memory database and save to file
-        self.formulas_db[query_lower] = response
+        # Update the in-memory database using normalized query
+        self.formulas_db[query_normalized] = response
         try:
             with open(self.formulas_file, 'w', encoding='utf-8') as f:
                 json.dump({"formulas": self.formulas_db}, f, indent=2)
-            logging.info(f"Formula for '{query_lower}' saved to formulas.json.")
+            logging.info(f"Formula for '{query_normalized}' saved to formulas.json.")
         except Exception as e:
             logging.error(f"Failed to save formula to file: {str(e)}")
         
-        return f"🧠 New Formula:\n{response}"
+        return f"🧮 **Formula Result:**\n{response}"
 
     def query_pdf(self, filename, question):
         try:
@@ -122,10 +158,7 @@ def main():
             print("❌ Please enter a command. Type 'help' for available commands.")
             continue
 
-        logging.info(f"User input received: '{user_input}'")
-        
         if user_input.lower() in ['exit', 'quit']:
-            logging.info("Exiting the bot.")
             break
             
         elif user_input.lower() == 'help':
@@ -150,7 +183,6 @@ def main():
                 
         elif user_input.lower().startswith('ask '):
             print(bot.get_formula(user_input[4:]))
-            
         else:
             print("❌ Invalid command. Type 'help' for available commands.")
 
