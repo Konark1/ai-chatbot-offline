@@ -4,14 +4,25 @@ from main import StudyBot
 
 class StudyBotGUI:
     def __init__(self, root):
-        self.root = root 
+        self.root = root
         self.root.title("📘 StudyBot AI")
         self.root.geometry("900x700")
-        self.root.configure(bg='#f0f0f0')  # Light gray background
+        self.root.configure(bg='#f0f0f0')
 
-        self.indepth_completed = False
+        # Initialize variables
+        self.count_var = tk.StringVar(value="Words: 0 | Chars: 0")
+        self.status_var = tk.StringVar(value="Ready")
+        self.mode_var = None
         self.selected_file = None
+        self.indepth_completed = False
+
+        # Initialize bot
         self.bot = StudyBot()
+        self.bot.set_callbacks(
+            status_cb=self.update_status,
+            progress_cb=self.update_progress
+        )
+        
         self.setup_styles()
         self.create_widgets()
 
@@ -70,6 +81,18 @@ class StudyBotGUI:
         self.query_entry.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(5, 10))
         self.query_entry.bind("<Return>", lambda event: self.handle_query())
 
+        # Add word count display
+        self.count_var = tk.StringVar(value="Words: 0 | Chars: 0")
+        count_label = ttk.Label(
+            query_frame,
+            textvariable=self.count_var,
+            style='Info.TLabel'
+        )
+        count_label.pack(side=tk.RIGHT, padx=5)
+        
+        # Bind update to text changes
+        self.query_entry.bind('<KeyRelease>', self.update_counts)
+
         self.submit_btn = tk.Button(query_frame, text="🔍 Submit", command=self.handle_query,
                                   bg="#2196F3", fg="white", font=("Segoe UI", 10, "bold"),
                                   relief=tk.FLAT, padx=20)
@@ -87,6 +110,31 @@ class StudyBotGUI:
             border=0
         )
         self.output_box.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
+
+        # Add Export button frame and button
+        export_frame = ttk.Frame(main_container)
+        export_frame.pack(fill=tk.X, pady=(5, 0))
+        
+        self.export_btn = ttk.Button(
+            export_frame,
+            text="📥 Export Results",
+            command=self.export_results,
+            style='Primary.TButton'
+        )
+        self.export_btn.pack(side=tk.RIGHT)
+
+        # Add progress bar
+        self.progress_frame = ttk.Frame(main_container)
+        self.progress_frame.pack(fill=tk.X, pady=(0, 5))
+        
+        self.progress_var = tk.DoubleVar()
+        self.progress_bar = ttk.Progressbar(
+            self.progress_frame,
+            variable=self.progress_var,
+            maximum=100
+        )
+        self.progress_bar.pack(fill=tk.X)
+        self.progress_frame.pack_forget()  # Hide initially
 
         # Status bar
         self.status_var = tk.StringVar(value="Ready")
@@ -194,6 +242,47 @@ class StudyBotGUI:
             msg = "No PDFs found in the documents folder."
         messagebox.showinfo("PDF Files", msg)
         self.status_var.set("Listed PDFs.")
+
+    def export_results(self):
+        """Export results to file."""
+        content = self.output_box.get(1.0, tk.END).strip()
+        if not content:
+            messagebox.showinfo("Export", "No content to export")
+            return
+            
+        filename = filedialog.asksaveasfilename(
+            defaultextension=".txt",
+            filetypes=[
+                ("Text files", "*.txt"),
+                ("PDF files", "*.pdf"),
+                ("All files", "*.*")
+            ]
+        )
+        
+        if filename:
+            try:
+                with open(filename, 'w', encoding='utf-8') as f:
+                    f.write(content)
+                messagebox.showinfo("Success", f"Results exported to {filename}")
+            except Exception as e:
+                messagebox.showerror("Error", f"Failed to export: {str(e)}")
+
+    def update_status(self, message):
+        """Update status bar with message."""
+        self.status_var.set(message)
+        self.root.update_idletasks()
+
+    def update_progress(self, value):
+        """Update progress bar."""
+        self.progress_var.set(value)
+        self.root.update_idletasks()
+
+    def update_counts(self, event=None):
+        """Update word and character counts."""
+        text = self.query_entry.get().strip()
+        words = len(text.split()) if text else 0
+        chars = len(text)
+        self.count_var.set(f"Words: {words} | Chars: {chars}")
 
 if __name__ == "__main__":
     root = tk.Tk()

@@ -6,6 +6,9 @@ import cv2
 from PIL import Image
 from gpt4all import GPT4All
 import logging
+from functools import lru_cache
+import numpy as np
+import time
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
@@ -23,9 +26,22 @@ class StudyBot:
         self.formulas_file = "formulas.json"
         self.formulas_db = {}
         self.init_formulas_db()
+        
+        # Add cache initialization
+        self.cache = {}
+        self.status_callback = None
+        self.progress_callback = None
 
-        # Initialize indexed content DB
-        self.indexed_db = {}
+    # Add these new methods after __init__
+    def set_callbacks(self, status_cb=None, progress_cb=None):
+        """Set callback functions for status and progress updates."""
+        self.status_callback = status_cb
+        self.progress_callback = progress_cb
+
+    def update_status(self, message):
+        """Update status if callback is set."""
+        if self.status_callback:
+            self.status_callback(message)
 
     def validate_and_fix_json(self):
         try:
@@ -59,10 +75,12 @@ class StudyBot:
         normalized = ' '.join(word for word in words if word not in filler_words)
         return normalized.strip()
 
+    @lru_cache(maxsize=100)
     def get_formula(self, query):
+        """Get formula with caching."""
         query_normalized = self.normalize_query(query)
-        logging.info(f"Original query: '{query}' normalized to: '{query_normalized}'")
         
+        # Check if formula exists in memory
         if query_normalized in self.formulas_db:
             logging.info(f"Formula for '{query_normalized}' found in database.")
             return f"📘 From Database:\n{self.formulas_db[query_normalized]}"
@@ -91,7 +109,7 @@ Result: [final answer with unit]
 - [key point 1]
 - [key point 2]
 """
-        response = self.model.generate(structured_prompt)
+        response = self.safe_generate(structured_prompt)
         self.formulas_db[query_normalized] = response
         try:
             with open(self.formulas_file, 'w', encoding='utf-8') as f:
@@ -102,15 +120,57 @@ Result: [final answer with unit]
         
         return f"🧮 **Formula Result:**\n{response}"
 
+    def analyze_image(self, image, page_num):
+        """Analyze image content and extract information."""
+        try:
+            # Convert to grayscale for better processing
+            gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+            
+            # Extract text using OCR
+            text = pytesseract.image_to_string(gray)
+            
+            # Detect image type (graph, diagram, picture)
+            edges = cv2.Canny(gray, 100, 200)
+            contours, _ = cv2.findContours(edges, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+            
+            # Basic image classification
+            if len(contours) > 20:
+                image_type = "Graph/Chart"
+            elif len(contours) > 5:
+                image_type = "Diagram"
+            else:
+                image_type = "Picture"
+                
+            return {
+                'type': image_type,
+                'text': text.strip(),
+                'page': page_num,
+                'complexity': len(contours)
+            }
+        except Exception as e:
+            logging.error(f"Image analysis failed: {str(e)}")
+            return None
+
     def extract_text_from_image_page(self, page, save_path="images/page.png"):
-        pix = page.get_pixmap(dpi=300)
-        pix.save(save_path)
-        img = cv2.imread(save_path)
-        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-        thresh = cv2.adaptiveThreshold(gray, 255, cv2.ADAPTIVE_THRESH_MEAN_C, cv2.THRESH_BINARY, 15, 10)
-        processed_path = save_path.replace(".png", "_processed.png")
-        cv2.imwrite(processed_path, thresh)
-        return pytesseract.image_to_string(Image.open(processed_path))
+        """Extract text from a PDF page containing images."""
+        try:
+            pix = page.get_pixmap()
+            pix.save(save_path)
+            img = cv2.imread(save_path)
+            
+            # Use the new analyze_image method
+            analysis = self.analyze_image(img, page.number + 1)
+            if analysis and analysis['text']:
+                return f"""
+Page {analysis['page']} Image Analysis:
+Type: {analysis['type']}
+Text Content: {analysis['text']}
+"""
+            return ""
+            
+        except Exception as e:
+            logging.error(f"Error processing image page: {str(e)}")
+            return ""
 
     def extract_full_pdf_content(self, file_path):  # Remove max_pages parameter
         full_text = ""
@@ -200,6 +260,7 @@ Summarize this chapter in bullet points. Include:
 
     def query_pdf(self, filename, question):
         try:
+            self.update_status(f"Processing PDF: {filename}")
             text = ""
             filepath = os.path.join("documents", filename)
             if not os.path.exists(filepath):
@@ -215,11 +276,14 @@ Summarize this chapter in bullet points. Include:
                 logging.warning("The document is empty or unreadable.")
                 return "❌ Error: The document is empty or unreadable."
 
+            self.update_status("Generating response...")
             response = self.model.generate(
                 f"Answer based on this document:\n{text[:10000]}\n\nQuestion: {question}\nAnswer:"
             )
+            self.update_status("Done")
             return f"📄 PDF Answer:\n{response}"
         except Exception as e:
+            self.update_status(f"Error: {str(e)}")
             logging.error(f"Error processing PDF query: {str(e)}")
             return f"❌ Error: {str(e)}"
 
@@ -276,6 +340,25 @@ Please structure your response with:
 Answer:
 """
         return "🔍 Search Result:\n" + self.model.generate(prompt)
+
+    def clear_cache(self):
+        """Clear the formula cache."""
+        self.get_formula.cache_clear()
+        self.cache.clear()
+        logging.info("Cache cleared")
+        if self.status_callback:
+            self.status_callback("Cache cleared")
+
+    def safe_generate(self, prompt, retries=3):
+        """Safely generate response with retries."""
+        for attempt in range(retries):
+            try:
+                return self.model.generate(prompt)
+            except Exception as e:
+                if attempt == retries - 1:
+                    raise
+                logging.warning(f"Generation attempt {attempt + 1} failed: {str(e)}")
+                time.sleep(1)  # Wait before retry
 
 def main():
     bot = StudyBot()
