@@ -4,11 +4,13 @@ from main import StudyBot
 
 class StudyBotGUI:
     def __init__(self, root):
-        self.root = root
+        self.root = root 
         self.root.title("📘 StudyBot AI")
         self.root.geometry("900x700")
         self.root.configure(bg='#f0f0f0')  # Light gray background
 
+        self.indepth_completed = False
+        self.selected_file = None
         self.bot = StudyBot()
         self.setup_styles()
         self.create_widgets()
@@ -34,12 +36,19 @@ class StudyBotGUI:
         mode_frame = ttk.LabelFrame(top_frame, text="Mode", padding="5")
         mode_frame.pack(side=tk.LEFT, padx=(0, 10))
 
+        # Update mode selection with all options
         self.mode_var = tk.StringVar(value="ask")
-        ttk.Radiobutton(mode_frame, text="Ask Formula", variable=self.mode_var, 
-                       value="ask").pack(side=tk.LEFT, padx=5)
-        ttk.Radiobutton(mode_frame, text="Query PDF", variable=self.mode_var, 
-                       value="pdf").pack(side=tk.LEFT, padx=5)
-
+        modes = [
+            ("Ask Formula", "ask"),
+            ("Search", "search"),  # Add search mode
+            ("PDF Query", "pdf"),
+            ("In-depth Study", "index"),
+            ("Summarize", "summary")
+        ]
+        for text, value in modes:
+            ttk.Radiobutton(mode_frame, text=text, variable=self.mode_var, 
+                          value=value, command=self.update_interface).pack(side=tk.LEFT, padx=5)
+        
         # PDF controls frame
         pdf_frame = ttk.Frame(top_frame)
         pdf_frame.pack(side=tk.LEFT, fill=tk.X, expand=True)
@@ -98,31 +107,84 @@ class StudyBotGUI:
             self.file_label.config(text=f"Selected: {self.selected_file}", fg="black")
             self.status_var.set(f"Selected PDF: {self.selected_file}")
 
+    def update_interface(self):
+        mode = self.mode_var.get()
+        self.query_entry.delete(0, tk.END)
+        
+        if mode == "ask":
+            self.query_entry.config(state="normal")
+            self.file_button.config(state="disabled")
+            self.query_entry.insert(0, "Enter formula query...")
+        elif mode == "search":  # Add search mode
+            self.query_entry.config(state="normal")
+            self.file_button.config(state="disabled")
+            self.query_entry.insert(0, "Enter any question...")
+        elif mode == "pdf":
+            self.query_entry.config(state="normal")
+            self.file_button.config(state="normal")
+            self.query_entry.insert(0, "Enter question about the PDF...")
+        elif mode == "index":
+            if self.indepth_completed:
+                self.query_entry.config(state="normal")
+                self.query_entry.insert(0, "Enter question for detailed study...")
+            else:
+                self.query_entry.config(state="disabled")
+            self.file_button.config(state="normal")
+        elif mode == "summary":
+            if not self.indepth_completed:
+                messagebox.showwarning("Warning", "Please perform In-depth Study first!")
+                self.mode_var.set("index")
+                self.update_interface()
+                return
+            self.query_entry.config(state="disabled")
+            self.file_button.config(state="disabled")
+
     def handle_query(self):
         query = self.query_entry.get().strip()
-        if not query:
-            messagebox.showwarning("Input Error", "Please enter a query.")
-            return
-
         mode = self.mode_var.get()
-        self.output_box.delete(1.0, tk.END)  # Clear output
-
+        
+        self.output_box.delete(1.0, tk.END)
         self.status_var.set("Processing...")
         self.root.update_idletasks()
 
-        if mode == "ask":
-            result = self.bot.get_formula(query)
-        elif mode == "pdf":
-            if not self.selected_file:
-                messagebox.showerror("No File", "Please select a PDF file.")
-                self.status_var.set("No PDF selected.")
-                return
-            result = self.bot.query_pdf(self.selected_file, query)
-        else:
-            result = "Invalid mode selected."
-
-        self.output_box.insert(tk.END, result)
-        self.status_var.set("Done.")
+        try:
+            result = ""
+            if mode == "ask":
+                if not query or query == "Enter formula query...":
+                    raise ValueError("Please enter a formula query")
+                result = self.bot.get_formula(query)
+            elif mode == "search":  # Add search mode
+                if not query or query == "Enter any question...":
+                    raise ValueError("Please enter a question")
+                result = self.bot.search_query(query)
+            elif mode == "pdf":
+                if not self.selected_file:
+                    raise ValueError("Please select a PDF file")
+                if not query or query == "Enter question about the PDF...":
+                    raise ValueError("Please enter a question")
+                result = self.bot.query_pdf(self.selected_file, query)
+            elif mode == "index":
+                if not self.selected_file and not self.indepth_completed:
+                    raise ValueError("Please select a PDF file for in-depth study")
+                if not self.indepth_completed:
+                    result = self.bot.index_chapter(f"documents/{self.selected_file}")
+                    self.indepth_completed = True
+                    self.status_var.set("In-depth study completed. You can now ask detailed questions.")
+                    self.update_interface()
+                elif query and query != "Enter question for detailed study...":
+                    result = self.bot.indepth_query(query)
+            elif mode == "summary":
+                if not self.indepth_completed:
+                    raise ValueError("Please perform In-depth Study first")
+                result = self.bot.summarize_chapter()
+            
+            self.output_box.insert(tk.END, result)
+            if mode != "index" or (mode == "index" and self.indepth_completed):
+                self.status_var.set("Done.")
+            
+        except Exception as e:
+            messagebox.showerror("Error", str(e))
+            self.status_var.set("Error occurred.")
 
     def list_pdfs(self):
         files = self.bot.list_files()
