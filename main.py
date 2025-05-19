@@ -16,8 +16,16 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(
 class StudyBot:
     def __init__(self):
         try:
-            # Load GPT4All model
-            self.model = GPT4All("mistral-7b-instruct-v0.1.Q4_0.gguf", model_path="models/")
+            model_path = os.path.join("models", "mistral-7b-instruct-v0.1.Q4_0.gguf")
+            if not os.path.exists(model_path):
+                logging.error(f"Model file not found at: {model_path}")
+                logging.error("Please download the model file and place it in the models folder")
+                exit(1)
+                
+            # Load GPT4All model in offline mode
+            self.model = GPT4All("mistral-7b-instruct-v0.1.Q4_0.gguf", 
+                                model_path="models/",
+                                allow_download=False)  # Prevent automatic downloads
         except Exception as e:
             logging.error(f"Failed to load GPT4All model: {str(e)}")
             exit(1)
@@ -31,6 +39,7 @@ class StudyBot:
         self.cache = {}
         self.status_callback = None
         self.progress_callback = None
+        self.pdf_cache = {}  # Add PDF content cache
 
     # Add these new methods after __init__
     def set_callbacks(self, status_cb=None, progress_cb=None):
@@ -172,7 +181,7 @@ Text Content: {analysis['text']}
             logging.error(f"Error processing image page: {str(e)}")
             return ""
 
-    def extract_full_pdf_content(self, file_path):  # Remove max_pages parameter
+    def extract_full_pdf_content(self, file_path):
         full_text = ""
         try:
             with fitz.open(file_path) as doc:
@@ -180,16 +189,16 @@ Text Content: {analysis['text']}
                 logging.info(f"Processing all {total_pages} pages...")
                 
                 for i, page in enumerate(doc):
-                    # Log progress every 5 pages
-                    if i % 5 == 0:
-                        logging.info(f"Processing page {i+1}/{total_pages}")
+                    if self.progress_callback:
+                        progress = (i + 1) / total_pages * 100
+                        self.progress_callback(progress)
+                        self.status_callback(f"Processing page {i+1}/{total_pages}")
                     
                     page_text = page.get_text().strip()
                     if not page_text:
-                        page_text = self.extract_text_from_image_page(page, f"images/page_{i}.png")
+                        page_text = self.extract_text_from_image_page(page)
                     full_text += f"\n=== Page {i+1} ===\n{page_text}\n"
                     
-                logging.info(f"Completed processing {total_pages} pages")
                 return full_text
         except Exception as e:
             logging.error(f"Error processing PDF: {str(e)}")
@@ -208,23 +217,25 @@ Text Content: {analysis['text']}
 
     def index_chapter(self, file_path):
         try:
-            logging.info(f"Starting in-depth study of: {file_path}")
-            filepath = os.path.join("documents", file_path)
+            cache_key = os.path.basename(file_path)
             
-            if not os.path.exists(filepath):
-                raise FileNotFoundError(f"File not found: {file_path}")
+            # Check cache first
+            if cache_key in self.pdf_cache:
+                logging.info("Using cached PDF content")
+                raw_text = self.pdf_cache[cache_key]
+            else:
+                logging.info(f"Processing PDF: {file_path}")
+                raw_text = self.extract_full_pdf_content(file_path)
+                self.pdf_cache[cache_key] = raw_text
                 
-            raw_text = self.extract_full_pdf_content(filepath)
             chunks = self.split_text_into_chunks(raw_text)
             self.indexed_db = {f"chunk_{i}": chunk for i, chunk in enumerate(chunks)}
             
-            logging.info(f"Successfully indexed {len(chunks)} chunks")
             return f"""✅ In-depth Study completed:
 - Full PDF processed successfully
 - Created {len(chunks)} content chunks
-- Ready for detailed queries
-- Use 'query <your question>' to ask questions"""
-    
+- Ready for detailed queries"""
+            
         except Exception as e:
             logging.error(f"Failed to index chapter: {str(e)}")
             raise
@@ -349,16 +360,20 @@ Answer:
         if self.status_callback:
             self.status_callback("Cache cleared")
 
-    def safe_generate(self, prompt, retries=3):
-        """Safely generate response with retries."""
-        for attempt in range(retries):
-            try:
-                return self.model.generate(prompt)
-            except Exception as e:
-                if attempt == retries - 1:
-                    raise
-                logging.warning(f"Generation attempt {attempt + 1} failed: {str(e)}")
-                time.sleep(1)  # Wait before retry
+    def safe_generate(self, prompt, retries=3, max_length=2048):
+        """Optimized model generation with length limit."""
+        try:
+            return self.model.generate(
+                prompt,
+                max_tokens=max_length,
+                temp=0.7,
+                top_k=40,
+                top_p=0.4,
+                repeat_penalty=1.18
+            )
+        except Exception as e:
+            logging.error(f"Generation failed: {str(e)}")
+            raise
 
 def main():
     bot = StudyBot()

@@ -1,6 +1,9 @@
 import tkinter as tk
 from tkinter import ttk, filedialog, scrolledtext, messagebox
 from main import StudyBot
+import os
+import logging
+import fitz  # PyMuPDF
 
 class StudyBotGUI:
     def __init__(self, root):
@@ -148,12 +151,58 @@ class StudyBotGUI:
         self.status_bar.pack(side=tk.BOTTOM, fill=tk.X)
 
     def select_pdf(self):
-        file_path = filedialog.askopenfilename(initialdir="documents", title="Select PDF",
-                                               filetypes=(("PDF Files", "*.pdf"),))
-        if file_path:
-            self.selected_file = file_path.split("/")[-1] if "/" in file_path else file_path.split("\\")[-1]
-            self.file_label.config(text=f"Selected: {self.selected_file}", fg="black")
-            self.status_var.set(f"Selected PDF: {self.selected_file}")
+        """Handle PDF file selection."""
+        try:
+            # Ensure documents directory exists
+            documents_dir = os.path.abspath("documents")
+            if not os.path.exists(documents_dir):
+                os.makedirs(documents_dir)
+                
+            file_path = filedialog.askopenfilename(
+                initialdir=documents_dir,
+                title="Select PDF",
+                filetypes=(("PDF Files", "*.pdf"),)
+            )
+            
+            if file_path:
+                # Normalize paths for comparison
+                file_path = os.path.normpath(file_path)
+                filename = os.path.basename(file_path)
+                destination = os.path.normpath(os.path.join(documents_dir, filename))
+                
+                # Check if file needs to be copied
+                if os.path.normcase(file_path) != os.path.normcase(destination):
+                    import shutil
+                    shutil.copy2(file_path, destination)
+                    logging.info(f"Copied PDF to documents folder: {destination}")
+                
+                # Store the filename only
+                self.selected_file = filename
+                
+                # Update GUI elements
+                self.file_label.config(text=f"Selected: {filename}")
+                
+                # Verify file is readable
+                try:
+                    with fitz.open(destination) as doc:
+                        page_count = len(doc)
+                        self.status_var.set(f"PDF loaded: {filename} ({page_count} pages)")
+                except Exception as e:
+                    raise ValueError(f"Invalid or corrupted PDF file: {str(e)}")
+                    
+                # Enable/update relevant controls
+                self.update_interface()
+                logging.info(f"Selected PDF: {filename}")
+                    
+            else:
+                self.status_var.set("PDF selection cancelled")
+                
+        except Exception as e:
+            logging.error(f"Error selecting PDF: {str(e)}")
+            messagebox.showerror("Error", str(e))
+            self.file_label.config(text="No PDF selected")
+            self.selected_file = None
+            self.update_interface()
 
     def update_interface(self):
         mode = self.mode_var.get()
@@ -172,12 +221,14 @@ class StudyBotGUI:
             self.file_button.config(state="normal")
             self.query_entry.insert(0, "Enter question about the PDF...")
         elif mode == "index":
+            self.file_button.config(state="normal")
             if self.indepth_completed:
                 self.query_entry.config(state="normal")
                 self.query_entry.insert(0, "Enter question for detailed study...")
+                self.file_button.config(state="disabled")  # Disable file selection after indexing
             else:
                 self.query_entry.config(state="disabled")
-            self.file_button.config(state="normal")
+                self.status_var.set("Select a PDF file to begin in-depth study")
         elif mode == "summary":
             if not self.indepth_completed:
                 messagebox.showwarning("Warning", "Please perform In-depth Study first!")
@@ -196,43 +247,85 @@ class StudyBotGUI:
         self.root.update_idletasks()
 
         try:
-            result = ""
-            if mode == "ask":
-                if not query or query == "Enter formula query...":
-                    raise ValueError("Please enter a formula query")
-                result = self.bot.get_formula(query)
-            elif mode == "search":  # Add search mode
-                if not query or query == "Enter any question...":
-                    raise ValueError("Please enter a question")
-                result = self.bot.search_query(query)
-            elif mode == "pdf":
-                if not self.selected_file:
-                    raise ValueError("Please select a PDF file")
-                if not query or query == "Enter question about the PDF...":
-                    raise ValueError("Please enter a question")
-                result = self.bot.query_pdf(self.selected_file, query)
-            elif mode == "index":
+            # Show progress bar for lengthy operations
+            self.progress_frame.pack(fill=tk.X, pady=(0, 5))
+            
+            if mode == "index":
                 if not self.selected_file and not self.indepth_completed:
                     raise ValueError("Please select a PDF file for in-depth study")
+                    
                 if not self.indepth_completed:
-                    result = self.bot.index_chapter(f"documents/{self.selected_file}")
+                    # Indexing phase
+                    pdf_path = os.path.join(os.path.abspath("documents"), self.selected_file)
+                    if not os.path.exists(pdf_path):
+                        raise FileNotFoundError(f"PDF file not found: {pdf_path}")
+                        
+                    self.status_var.set("Indexing PDF... This may take a while.")
+                    self.root.update_idletasks()
+                    
+                    result = self.bot.index_chapter(pdf_path)
                     self.indepth_completed = True
+                    
                     self.status_var.set("In-depth study completed. You can now ask detailed questions.")
                     self.update_interface()
-                elif query and query != "Enter question for detailed study...":
+                    self.query_entry.config(state="normal")  # Enable query entry
+                else:
+                    # Query phase
+                    if not query or query == "Enter question for detailed study...":
+                        raise ValueError("Please enter your question")
                     result = self.bot.indepth_query(query)
-            elif mode == "summary":
-                if not self.indepth_completed:
-                    raise ValueError("Please perform In-depth Study first")
-                result = self.bot.summarize_chapter()
-            
-            self.output_box.insert(tk.END, result)
-            if mode != "index" or (mode == "index" and self.indepth_completed):
-                self.status_var.set("Done.")
+                    
+                self.output_box.insert(tk.END, result)
+                
+            else:
+                result = ""
+                if mode == "ask":
+                    if not query or query == "Enter formula query...":
+                        raise ValueError("Please enter a formula query")
+                    result = self.bot.get_formula(query)
+                elif mode == "search":
+                    if not query or query == "Enter any question...":
+                        raise ValueError("Please enter a question")
+                    result = self.bot.search_query(query)
+                elif mode == "pdf":
+                    if not self.selected_file:
+                        raise ValueError("Please select a PDF file")
+                    if not query or query == "Enter question about the PDF...":
+                        raise ValueError("Please enter a question")
+                    # Use full path for PDF operations
+                    pdf_path = os.path.join(os.path.abspath("documents"), self.selected_file)
+                    if not os.path.exists(pdf_path):
+                        raise FileNotFoundError(f"PDF file not found: {pdf_path}")
+                    result = self.bot.query_pdf(pdf_path, query)
+                elif mode == "index":
+                    if not self.selected_file and not self.indepth_completed:
+                        raise ValueError("Please select a PDF file for in-depth study")
+                    if not self.indepth_completed:
+                        # Use full path for indexing
+                        pdf_path = os.path.join(os.path.abspath("documents"), self.selected_file)
+                        if not os.path.exists(pdf_path):
+                            raise FileNotFoundError(f"PDF file not found: {pdf_path}")
+                        result = self.bot.index_chapter(pdf_path)
+                        self.indepth_completed = True
+                        self.status_var.set("In-depth study completed. You can now ask detailed questions.")
+                        self.update_interface()
+                    elif query and query != "Enter question for detailed study...":
+                        result = self.bot.indepth_query(query)
+                elif mode == "summary":
+                    if not self.indepth_completed:
+                        raise ValueError("Please perform In-depth Study first")
+                    result = self.bot.summarize_chapter()
+        
+                self.output_box.insert(tk.END, result)
+                if mode != "index" or (mode == "index" and self.indepth_completed):
+                    self.status_var.set("Done.")
             
         except Exception as e:
             messagebox.showerror("Error", str(e))
             self.status_var.set("Error occurred.")
+            logging.error(f"Error in handle_query: {str(e)}")
+        finally:
+            self.progress_frame.pack_forget()  # Hide progress bar
 
     def list_pdfs(self):
         files = self.bot.list_files()
